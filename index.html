@@ -194,15 +194,7 @@
                 }
             }
 
-            // 3. Spacebar shape toggle (only works if circle exists)
-            window.addEventListener('keydown', (e) => {
-                if (e.code === 'Space' && !isDestroyed) {
-                    e.preventDefault(); 
-                    centerCircle.classList.toggle('gemini-logo');
-                }
-            });
-
-            // 4. Mouse movement drawing
+            // 3. Mouse movement drawing
             window.addEventListener('pointermove', (e) => {
                 if (isFlowing) {
                     createDroplet(e.clientX, e.clientY);
@@ -230,7 +222,7 @@
                 });
             }
 
-            // 5. Dynamic Color Syncer
+            // 4. Dynamic Color Syncer
             function updateGlobalColor() {
                 globalHue = (globalHue + 0.5) % 360;
                 const currentColor = `hsl(${globalHue}, 100%, 50%)`;
@@ -244,7 +236,7 @@
                 requestAnimationFrame(updateGlobalColor);
             }
 
-            // 6. Dual Physics Engine
+            // 5. Dual Physics Engine
             function applyPhysics() {
                 const centerX = window.innerWidth / 2;
                 const centerY = window.innerHeight / 2;
@@ -320,7 +312,7 @@
                 requestAnimationFrame(applyPhysics);
             }
 
-            // 7. Reset Button Routine
+            // 6. Reset Button Routine
             resetBtn.addEventListener('click', (e) => {
                 e.stopPropagation(); 
                 
