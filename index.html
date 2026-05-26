@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Liquid Gravity Circle</title>
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #000000; /* Pure black prevents contrast washout */
+            overflow: hidden;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        /* The Magic Filter Container for liquid effect */
+        .liquid-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #000000;
+            filter: blur(20px) contrast(30); 
+            mix-blend-mode: screen;
+            pointer-events: none; 
+        }
+
+        /* Central Circle */
+        .spectrum-circle {
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            position: absolute;
+            background-color: hsl(0, 100%, 50%);
+            z-index: 2;
+            transition: width 0.1s ease-out, height 0.1s ease-out, clip-path 0.5s ease-in-out, border-radius 0.5s ease-in-out, opacity 0.2s ease; 
+        }
+
+        /* Gemini Star Logo Morph */
+        .spectrum-circle.gemini-logo {
+            border-radius: 0%;
+            clip-path: polygon(
+                50% 0%, 53% 38%, 62% 44%, 100% 50%, 
+                62% 56%, 53% 62%, 50% 100%, 47% 62%, 
+                38% 56%, 0% 50%, 38% 44%, 47% 38%
+            );
+        }
+
+        /* Liquid droplets */
+        .droplet {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            position: absolute;
+            pointer-events: none;
+            background-color: hsl(0, 100%, 50%);
+            transform: translate(-50%, -50%);
+            z-index: 1;
+        }
+
+        /* UI Overlay Layer */
+        .ui-layer {
+            position: absolute;
+            bottom: 25px;
+            right: 25px;
+            z-index: 100;
+        }
+
+        .reset-btn {
+            padding: 12px 24px;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 25px;
+            font-family: sans-serif;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            transition: all 0.2s ease;
+            pointer-events: auto;
+        }
+
+        .reset-btn:hover {
+            background-color: rgba(255, 255, 255, 0.25);
+            transform: scale(1.05);
+        }
+
+        .reset-btn:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="liquid-container" id="container">
+        <div class="spectrum-circle" id="centerCircle"></div>
+    </div>
+
+    <div class="ui-layer">
+        <button class="reset-btn" id="resetBtn">Reset</button>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const container = document.getElementById('container');
+            const centerCircle = document.getElementById('centerCircle');
+            const resetBtn = document.getElementById('resetBtn');
+            
+            let globalHue = 0;
+            const droplets = [];
+            const gravityStrength = 0.4;
+            const downwardGravity = 0.3; // Gravity pulling exploded drops to the bottom
+            
+            const baseSize = 180;
+            let currentSize = baseSize;
+            const growthFactor = 1.5; 
+            let isFlowing = false;
+            let isDestroyed = false; // Tracks if the circle has exploded
+
+            // 1. Unified Click Handler
+            window.addEventListener('pointerdown', (e) => {
+                if (e.target === resetBtn) return; 
+
+                // If the circle is exploded, clicks only toggle mouse drawing
+                if (isDestroyed) {
+                    isFlowing = !isFlowing;
+                    return;
+                }
+
+                const centerX = window.innerWidth / 2;
+                const centerY = window.innerHeight / 2;
+                const currentRadius = currentSize / 2;
+
+                const dx = e.clientX - centerX;
+                const dy = e.clientY - centerY;
+                const distanceFromCenter = Math.sqrt(dx * dx + dy * dy);
+
+                if (distanceFromCenter <= currentRadius) {
+                    explodeCircle(centerX, centerY);
+                } else {
+                    isFlowing = !isFlowing;
+                }
+            });
+
+            // 2. The Explode Logic
+            function explodeCircle(cx, cy) {
+                isDestroyed = true;
+                isFlowing = false; // Stop mouse-drawing temporarily on explosion
+                centerCircle.style.opacity = '0'; // Hide center circle
+                centerCircle.style.pointerEvents = 'none';
+
+                // Determine how many droplets to spawn based on how large the circle grew
+                const dropletCount = Math.floor(currentSize / 4);
+
+                for (let i = 0; i < dropletCount; i++) {
+                    // Spawn droplets randomly distributed inside the circle area
+                    const angle = Math.random() * Math.PI * 2;
+                    const radius = Math.random() * (currentSize / 2);
+                    const spawnX = cx + Math.cos(angle) * radius;
+                    const spawnY = cy + Math.sin(angle) * radius;
+
+                    const el = document.createElement('div');
+                    el.className = 'droplet';
+                    el.style.left = `${spawnX}px`;
+                    el.style.top = `${spawnY}px`;
+                    el.style.backgroundColor = `hsl(${globalHue}, 100%, 50%)`;
+                    
+                    container.appendChild(el);
+
+                    // Blast velocities outward from center
+                    const blastSpeed = Math.random() * 4 + 2;
+                    
+                    droplets.push({
+                        element: el,
+                        x: spawnX,
+                        y: spawnY,
+                        vx: Math.cos(angle) * blastSpeed + (Math.random() - 0.5) * 2,
+                        vy: Math.sin(angle) * blastSpeed + (Math.random() - 0.5) * 2,
+                        scale: 1,
+                        isMerging: false,
+                        isExplosionDroplet: true // Flags physics engine to drop down instead of look at center
+                    });
+                }
+            }
+
+            // 3. Spacebar shape toggle (only works if circle exists)
+            window.addEventListener('keydown', (e) => {
+                if (e.code === 'Space' && !isDestroyed) {
+                    e.preventDefault(); 
+                    centerCircle.classList.toggle('gemini-logo');
+                }
+            });
+
+            // 4. Mouse movement drawing
+            window.addEventListener('pointermove', (e) => {
+                if (isFlowing) {
+                    createDroplet(e.clientX, e.clientY);
+                }
+            });
+
+            function createDroplet(x, y) {
+                const el = document.createElement('div');
+                el.className = 'droplet';
+                el.style.left = `${x}px`;
+                el.style.top = `${y}px`;
+                el.style.backgroundColor = `hsl(${globalHue}, 100%, 50%)`;
+                
+                container.appendChild(el);
+
+                droplets.push({
+                    element: el,
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: (Math.random() - 0.5) * 2,
+                    scale: 1,
+                    isMerging: false,
+                    isExplosionDroplet: false
+                });
+            }
+
+            // 5. Dynamic Color Syncer
+            function updateGlobalColor() {
+                globalHue = (globalHue + 0.5) % 360;
+                const currentColor = `hsl(${globalHue}, 100%, 50%)`;
+                
+                centerCircle.style.backgroundColor = currentColor;
+                
+                droplets.forEach(drop => {
+                    drop.element.style.backgroundColor = currentColor;
+                });
+
+                requestAnimationFrame(updateGlobalColor);
+            }
+
+            // 6. Dual Physics Engine
+            function applyPhysics() {
+                const centerX = window.innerWidth / 2;
+                const centerY = window.innerHeight / 2;
+                const currentRadius = currentSize / 2;
+                const screenHeight = window.innerHeight;
+
+                for (let i = droplets.length - 1; i >= 0; i--) {
+                    const drop = droplets[i];
+
+                    // BRANCH A: Droplet belongs to the explosion group
+                    if (drop.isExplosionDroplet) {
+                        drop.vy += downwardGravity; // Pull downward
+                        drop.x += drop.vx;
+                        drop.y += drop.vy;
+
+                        // Start shrinking/disappearing when close to or past the bottom edge
+                        if (drop.y > screenHeight - 60) {
+                            drop.scale -= 0.04;
+                            drop.element.style.transform = `translate(-50%, -50%) scale(${drop.scale})`;
+                        }
+
+                        // Remove entirely when vanished
+                        if (drop.scale <= 0) {
+                            drop.element.remove();
+                            droplets.splice(i, 1);
+                            continue;
+                        }
+                    } 
+                    // BRANCH B: Normal mouse tracking droplets
+                    else {
+                        const dx = centerX - drop.x;
+                        const dy = centerY - drop.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+
+                        // If the center circle is destroyed, mouse droplets drift without core gravitational collection
+                        if (isDestroyed) {
+                            drop.x += drop.vx;
+                            drop.y += drop.vy;
+                        } else {
+                            if (distance < currentRadius) { 
+                                drop.isMerging = true;
+                            }
+
+                            if (drop.isMerging) {
+                                drop.scale -= 0.05;
+                                drop.element.style.transform = `translate(-50%, -50%) scale(${drop.scale})`;
+                                
+                                drop.x += dx * 0.2;
+                                drop.y += dy * 0.2;
+
+                                if (drop.scale <= 0) {
+                                    currentSize += growthFactor;
+                                    centerCircle.style.width = `${currentSize}px`;
+                                    centerCircle.style.height = `${currentSize}px`;
+
+                                    drop.element.remove();
+                                    droplets.splice(i, 1);
+                                    continue;
+                                }
+                            } else {
+                                drop.vx += (dx / distance) * gravityStrength;
+                                drop.vy += (dy / distance) * gravityStrength;
+                                drop.x += drop.vx;
+                                drop.y += drop.vy;
+                            }
+                        }
+                    }
+
+                    drop.element.style.left = `${drop.x}px`;
+                    drop.element.style.top = `${drop.y}px`;
+                }
+
+                requestAnimationFrame(applyPhysics);
+            }
+
+            // 7. Reset Button Routine
+            resetBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); 
+                
+                // Re-materialize core circle metrics
+                isDestroyed = false;
+                currentSize = baseSize;
+                centerCircle.style.width = `${currentSize}px`;
+                centerCircle.style.height = `${currentSize}px`;
+                centerCircle.classList.remove('gemini-logo');
+                
+                // Restore visibility smoothly
+                centerCircle.style.opacity = '1';
+                centerCircle.style.pointerEvents = 'auto';
+            });
+
+            updateGlobalColor();
+            applyPhysics();
+        });
+    </script>
+</body>
+</html>
